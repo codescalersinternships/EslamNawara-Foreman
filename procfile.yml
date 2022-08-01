@@ -1,0 +1,13 @@
+app1:
+    cmd: ping -c 1 google.com 
+    run_once: false 
+    checks:
+        cmd: ps aux 
+    deps: 
+        - app2 
+app2:
+    cmd: ping -c 50 yahoo.com
+    run_once: true
+    checks:
+        cmd: ps aux
+

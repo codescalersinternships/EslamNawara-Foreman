@@ -3,30 +3,39 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Foreman struct {
 	services map[string]Service
+	active   bool
 }
 
 type Service struct {
 	serviceName string
+	id          int
 	cmd         string
+	cmdArgs     []string
 	runOnce     bool
-	checks      Check
+	check       Check
 	deps        []string
 }
 
 type Check struct {
 	cmd      string
+	cmdArgs  []string
 	tcpPorts []string
 	udpPorts []string
 }
 
 func parseProcfile(filePath string) (Foreman, error) {
-	foreman := Foreman{services: make(map[string]Service)}
+	foreman := Foreman{
+		services: map[string]Service{},
+		active:   true,
+	}
+
 	yamlMap := make(map[string]map[string]any)
 
 	data, err := os.ReadFile(filePath)
@@ -53,7 +62,7 @@ func parseService(serviceName string, info map[string]any) Service {
 	for key, value := range info {
 		switch key {
 		case "cmd":
-			service.cmd = value.(string)
+			service.cmd, service.cmdArgs = parseCmd(value.(string))
 		case "run_once":
 			service.runOnce = value.(bool)
 		case "deps":
@@ -61,7 +70,7 @@ func parseService(serviceName string, info map[string]any) Service {
 				service.deps = append(service.deps, dep.(string))
 			}
 		case "checks":
-			service.checks = parseCheck(value)
+			service.check = parseCheck(value)
 		}
 	}
 	return service
@@ -72,7 +81,7 @@ func parseCheck(value any) Check {
 	for checkKey, checkValue := range value.(map[string]any) {
 		switch checkKey {
 		case "cmd":
-			checks.cmd = checkValue.(string)
+			checks.cmd, checks.cmdArgs = parseCmd(checkValue.(string))
 		case "tcp_ports":
 			for _, port := range checkValue.([]any) {
 				checks.tcpPorts = append(checks.tcpPorts, fmt.Sprint(port.(int)))
@@ -84,4 +93,9 @@ func parseCheck(value any) Check {
 		}
 	}
 	return checks
+}
+
+func parseCmd(cmd string) (string, []string) {
+	args := strings.Split(cmd, " ")
+	return args[0], args[1:]
 }
