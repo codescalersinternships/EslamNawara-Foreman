@@ -15,6 +15,7 @@ type Foreman struct {
 
 type Service struct {
 	serviceName string
+	process     *os.Process
 	id          int
 	cmd         string
 	cmdArgs     []string

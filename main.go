@@ -1,5 +1,13 @@
 package main
 
+import "fmt"
+
 func main() {
-    startForeman()
+
+	foreman, err := parseProcfile("procfile.yml")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	foreman.startForeman()
 }

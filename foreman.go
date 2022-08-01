@@ -7,17 +7,15 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/shirou/gopsutil/process"
 )
 
 const interval = 100 * time.Millisecond
 
-func startForeman() {
+func (foreman Foreman) startForeman() {
 	signals := make(chan os.Signal)
-	foreman, err := parseProcfile("procfile.yml")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+
 	graph := buildDepGraph(foreman)
 	if isCyclic(graph) {
 		fmt.Println("Found conflect in dependencies")
@@ -29,7 +27,7 @@ func startForeman() {
 		foreman.runProcess(service)
 	}
 
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGCHLD)
+	signal.Notify(signals, syscall.SIGCHLD, syscall.SIGINT)
 	for {
 		signal := <-signals
 		switch signal {
@@ -42,25 +40,23 @@ func startForeman() {
 }
 
 func (foreman *Foreman) runProcess(serviceName string) error {
-	fmt.Println(serviceName + " started")
 	service := foreman.services[serviceName]
 	cmd := exec.Command(service.cmd, service.cmdArgs...)
 	err := cmd.Start()
 	if err != nil {
 		return err
 	}
+	service.process = cmd.Process
 	service.id = cmd.Process.Pid
 	foreman.services[serviceName] = service
-	fmt.Println("here")
 	if !service.runOnce {
 		ticker := time.NewTicker(interval)
 		go func() {
 			for {
 				<-ticker.C
-				cmd = exec.Command(service.check.cmd, service.check.cmdArgs...)
-				err = cmd.Run()
+				checkCmd := exec.Command(service.check.cmd, service.check.cmdArgs...)
+				err = checkCmd.Run()
 				if err != nil {
-					fmt.Println(serviceName + ": check failed ")
 					syscall.Kill(service.id, syscall.SIGINT)
 					return
 				}
@@ -70,25 +66,23 @@ func (foreman *Foreman) runProcess(serviceName string) error {
 	return nil
 }
 
+func (foreman Foreman) sigchildHandler() {
+	for _, service := range foreman.services {
+		childProcess, _ := process.NewProcess(int32(service.process.Pid))
+		childStatus, _ := childProcess.Status()
+		if childStatus == "Z" {
+			service.process.Wait()
+			if !service.runOnce && foreman.active {
+				foreman.runProcess(service.serviceName)
+			}
+		}
+	}
+}
+
 func (foreman Foreman) sigintHandler() {
 	foreman.active = false
 	for _, service := range foreman.services {
 		syscall.Kill(service.id, syscall.SIGINT)
 	}
 	os.Exit(0)
-}
-
-func (foreman Foreman) sigchildHandler() {
-	for _, service := range foreman.services {
-		err := syscall.Kill(service.id, 0)
-		fmt.Println("here")
-		if err != nil {
-			fmt.Println("here 2")
-			childProcess, _ := os.FindProcess(service.id)
-			childProcess.Kill()
-			if !service.runOnce && foreman.active {
-				foreman.runProcess(service.serviceName)
-			}
-		}
-	}
 }
