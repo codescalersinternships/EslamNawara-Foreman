@@ -13,13 +13,12 @@ import (
 
 const interval = 100 * time.Millisecond
 
-func (foreman Foreman) startForeman() {
+func (foreman Foreman) startForeman() error {
 	signals := make(chan os.Signal)
 
 	graph := buildDepGraph(foreman)
 	if isCyclic(graph) {
-		fmt.Println("Found conflect in dependencies")
-		return
+		return fmt.Errorf("Found conflect in dependencies")
 	}
 	services := topSort(graph)
 
@@ -27,15 +26,10 @@ func (foreman Foreman) startForeman() {
 		foreman.runProcess(service)
 	}
 
-	signal.Notify(signals, syscall.SIGCHLD, syscall.SIGINT)
+	signal.Notify(signals, syscall.SIGCHLD)
 	for {
-		signal := <-signals
-		switch signal {
-		case syscall.SIGCHLD:
-			foreman.sigchildHandler()
-		case syscall.SIGINT:
-			foreman.sigintHandler()
-		}
+		<-signals
+		foreman.sigchildHandler()
 	}
 }
 
@@ -49,21 +43,23 @@ func (foreman *Foreman) runProcess(serviceName string) error {
 	service.process = cmd.Process
 	service.id = cmd.Process.Pid
 	foreman.services[serviceName] = service
-	if !service.runOnce {
-		ticker := time.NewTicker(interval)
-		go func() {
-			for {
-				<-ticker.C
-				checkCmd := exec.Command(service.check.cmd, service.check.cmdArgs...)
-				err = checkCmd.Run()
-				if err != nil {
-					syscall.Kill(service.id, syscall.SIGINT)
-					return
-				}
-			}
-		}()
-	}
+
+	go service.checker()
 	return nil
+}
+
+func (service Service) checker() {
+	ticker := time.NewTicker(interval)
+	for {
+		<-ticker.C
+		checkCmd := exec.Command(service.check.cmd, service.check.cmdArgs...)
+		err := checkCmd.Run()
+		if err != nil {
+			syscall.Kill(service.id, syscall.SIGINT)
+			return
+		}
+	}
+
 }
 
 func (foreman Foreman) sigchildHandler() {
@@ -72,17 +68,9 @@ func (foreman Foreman) sigchildHandler() {
 		childStatus, _ := childProcess.Status()
 		if childStatus == "Z" {
 			service.process.Wait()
-			if !service.runOnce && foreman.active {
+			if !service.runOnce {
 				foreman.runProcess(service.serviceName)
 			}
 		}
 	}
-}
-
-func (foreman Foreman) sigintHandler() {
-	foreman.active = false
-	for _, service := range foreman.services {
-		syscall.Kill(service.id, syscall.SIGINT)
-	}
-	os.Exit(0)
 }

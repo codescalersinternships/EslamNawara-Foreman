@@ -10,7 +10,6 @@ import (
 
 type Foreman struct {
 	services map[string]Service
-	active   bool
 }
 
 type Service struct {
@@ -34,7 +33,6 @@ type Check struct {
 func parseProcfile(filePath string) (Foreman, error) {
 	foreman := Foreman{
 		services: map[string]Service{},
-		active:   true,
 	}
 
 	yamlMap := make(map[string]map[string]any)

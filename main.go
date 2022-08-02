@@ -9,5 +9,10 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	foreman.startForeman()
+	err = foreman.startForeman()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 }
