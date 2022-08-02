@@ -34,9 +34,8 @@ redis:
 ## How to use
 **First:** modify the procfile with processes or services you want to run.
 
-**second**: build and run with command: 
+**second**: Simply run with command: 
 ```sh
-$ go build -o foreman *.go
 $ ./foreman
 ```
 
