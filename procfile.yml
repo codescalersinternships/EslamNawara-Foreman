@@ -2,13 +2,13 @@ app1:
     cmd: ping -c 1 google.com 
     run_once: false 
     checks:
-        cmd: ps aux | grep google
+        cmd: ps aux 
     deps: 
         - redis
 app2:
     cmd: ping -c 5 yahoo.com
     checks:
-        cmd: ps aux | grep yahoo
+        cmd: ps aux
 
 redis:
     cmd: redis-server --port 5000 
