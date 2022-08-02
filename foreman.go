@@ -23,7 +23,10 @@ func (foreman Foreman) startForeman() error {
 	services := topSort(graph)
 
 	for _, service := range services {
-		foreman.runProcess(service)
+		err := foreman.runProcess(service)
+		if err != nil {
+			return fmt.Errorf("failed to start the process %s", service)
+		}
 	}
 
 	signal.Notify(signals, syscall.SIGCHLD)
@@ -34,7 +37,7 @@ func (foreman Foreman) startForeman() error {
 }
 
 func (foreman *Foreman) runProcess(serviceName string) error {
-    fmt.Println(serviceName + " started")
+	fmt.Println(serviceName + " started")
 	service := foreman.services[serviceName]
 	cmd := exec.Command(service.cmd, service.cmdArgs...)
 	err := cmd.Start()
