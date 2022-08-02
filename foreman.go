@@ -34,6 +34,7 @@ func (foreman Foreman) startForeman() error {
 }
 
 func (foreman *Foreman) runProcess(serviceName string) error {
+    fmt.Println(serviceName + " started")
 	service := foreman.services[serviceName]
 	cmd := exec.Command(service.cmd, service.cmdArgs...)
 	err := cmd.Start()

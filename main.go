@@ -5,6 +5,7 @@ import "fmt"
 func main() {
 
 	foreman, err := parseProcfile("procfile.yml")
+    fmt.Println("up and running")
 	if err != nil {
 		fmt.Println(err)
 		return
