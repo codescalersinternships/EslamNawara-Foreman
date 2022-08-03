@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -17,7 +16,6 @@ type Service struct {
 	serviceName string
 	process     *os.Process
 	cmd         string
-	cmdArgs     []string
 	runOnce     bool
 	check       Check
 	deps        []string
@@ -25,7 +23,6 @@ type Service struct {
 
 type Check struct {
 	cmd      string
-	cmdArgs  []string
 	tcpPorts []string
 	udpPorts []string
 }
@@ -62,7 +59,7 @@ func parseService(serviceName string, info map[string]any) Service {
 	for key, value := range info {
 		switch key {
 		case "cmd":
-			service.cmd, service.cmdArgs = parseCmd(value.(string))
+			service.cmd = value.(string)
 		case "run_once":
 			service.runOnce = value.(bool)
 		case "deps":
@@ -81,7 +78,7 @@ func parseCheck(value any) Check {
 	for checkKey, checkValue := range value.(map[string]any) {
 		switch checkKey {
 		case "cmd":
-			checks.cmd, checks.cmdArgs = parseCmd(checkValue.(string))
+			checks.cmd = checkValue.(string)
 		case "tcp_ports":
 			for _, port := range checkValue.([]any) {
 				checks.tcpPorts = append(checks.tcpPorts, fmt.Sprint(port.(int)))
@@ -93,9 +90,4 @@ func parseCheck(value any) Check {
 		}
 	}
 	return checks
-}
-
-func parseCmd(cmd string) (string, []string) {
-	args := strings.Split(cmd, " ")
-	return args[0], args[1:]
 }

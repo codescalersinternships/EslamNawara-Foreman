@@ -46,7 +46,7 @@ func (foreman Foreman) startForeman() error {
 func (foreman *Foreman) runProcess(serviceName string) error {
 	fmt.Println(serviceName + " started")
 	service := foreman.services[serviceName]
-	cmd := exec.Command(service.cmd, service.cmdArgs...)
+	cmd := exec.Command("bash", "-c", service.cmd)
 	err := cmd.Start()
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func (service Service) checker() {
 	ticker := time.NewTicker(interval)
 	for {
 		<-ticker.C
-		checkCmd := exec.Command(service.check.cmd, service.check.cmdArgs...)
+		checkCmd := exec.Command("bash", "-c", service.check.cmd)
 		err := checkCmd.Run()
 		if err != nil {
 			syscall.Kill(service.process.Pid, syscall.SIGINT)
