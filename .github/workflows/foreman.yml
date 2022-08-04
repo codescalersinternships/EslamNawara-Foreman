@@ -1,4 +1,4 @@
-name: test-bitcask
+name: test-foreman
 
 on:
   push:
