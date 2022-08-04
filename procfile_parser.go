@@ -14,6 +14,7 @@ type Foreman struct {
 
 type Service struct {
 	serviceName string
+    status      bool
 	process     *os.Process
 	cmd         string
 	runOnce     bool
@@ -37,7 +38,7 @@ func parseProcfile(filePath string) (Foreman, error) {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return Foreman{}, fmt.Errorf("Failed to read the procfile")
+		return Foreman{}, fmt.Errorf("open unknown_file: no such file or directory")
 	}
 
 	err = yaml.Unmarshal([]byte(data), yamlMap)

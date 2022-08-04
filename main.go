@@ -4,12 +4,12 @@ import "fmt"
 
 func main() {
 
-	foreman, err := parseProcfile("procfile.yml")
+	foreman, err := parseProcfile("tests/Procfile")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = foreman.startForeman()
+	err = foreman.StartForeman()
 	if err != nil {
 		fmt.Println(err)
 		return

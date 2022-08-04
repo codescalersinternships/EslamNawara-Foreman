@@ -15,19 +15,19 @@ app1:
     cmd: ping -c 1 google.com 
     run_once: false 
     checks:
-        cmd: ps aux 
+        cmd: ps aux | grep google
     deps: 
         - redis
 app2:
     cmd: ping -c 5 yahoo.com
     checks:
-        cmd: ps aux
+        cmd: ps aux | grep yahoo
 
 redis:
-    cmd: redis-server --port 5000 
+    cmd: redis-server --port 6010
     checks:
-        cmd: redis-cli -p 5000 ping
-        tcp_ports: [5000]
+        cmd: redis-cli -p 6010 ping
+        tcp_ports: [6010]
 ```
 **Here** we defined three services `app1`, `app2` and `redis` with check commands and dependency matrix
 

@@ -13,9 +13,10 @@ import (
 	"github.com/shirou/gopsutil/process"
 )
 
-const interval = 100 * time.Millisecond
+const interval = 50 * time.Millisecond
 
-func (foreman Foreman) startForeman() error {
+// start all services from yaml file
+func (foreman Foreman) StartForeman() error {
 	signals := make(chan os.Signal)
 
 	graph := buildDepGraph(foreman)
@@ -25,7 +26,7 @@ func (foreman Foreman) startForeman() error {
 	services := topSort(graph)
 
 	for _, service := range services {
-		err := foreman.runProcess(service)
+		err := foreman.runService(service)
 		if err != nil {
 			return fmt.Errorf("failed to start the process %s", service)
 		}
@@ -43,9 +44,11 @@ func (foreman Foreman) startForeman() error {
 	}
 }
 
-func (foreman *Foreman) runProcess(serviceName string) error {
+// start one service and wait for it
+func (foreman *Foreman) runService(serviceName string) error {
 	fmt.Println(serviceName + " started")
 	service := foreman.services[serviceName]
+	service.status = true
 	cmd := exec.Command("bash", "-c", service.cmd)
 	err := cmd.Start()
 	if err != nil {
@@ -54,11 +57,12 @@ func (foreman *Foreman) runProcess(serviceName string) error {
 	service.process = cmd.Process
 	foreman.services[serviceName] = service
 
-	go service.checker()
+	go foreman.checker(serviceName)
 	return nil
 }
 
-func (service Service) checker() {
+func (foreman Foreman) checker(serviceName string) {
+	service := foreman.services[serviceName]
 	ticker := time.NewTicker(interval)
 	for {
 		<-ticker.C
@@ -68,11 +72,22 @@ func (service Service) checker() {
 			syscall.Kill(service.process.Pid, syscall.SIGINT)
 			return
 		}
-
-		if len(service.check.tcpPorts) > 0 {
-			ports := service.check.tcpPorts
+		for _, dep := range service.deps {
+			if !foreman.services[dep].status {
+				syscall.Kill(service.process.Pid, syscall.SIGINT)
+				return
+			}
+		}
+		checkPort := func(portType string) {
+			var ports []string
+			switch portType {
+			case "tcp":
+				ports = service.check.tcpPorts
+			case "udp":
+				ports = service.check.udpPorts
+			}
 			for _, port := range ports {
-				cmd := fmt.Sprintf("sudo netstat -lnptu | grep tcp | grep %s -m 1 | awk '{print $7}'", port)
+				cmd := fmt.Sprintf("netstat -lnptu | grep %s | grep %s -m 1 | awk '{print $7}'", portType, port)
 				out, _ := exec.Command("bash", "-c", cmd).Output()
 				pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
 				if err != nil || pid != service.process.Pid {
@@ -80,42 +95,31 @@ func (service Service) checker() {
 					syscall.Kill(service.process.Pid, syscall.SIGINT)
 					return
 				}
-
 			}
 		}
-		if len(service.check.udpPorts) > 0 {
-			ports := service.check.udpPorts
-			for _, port := range ports {
-				cmd := fmt.Sprintf("sudo netstat -lnptu | grep udp | grep %s -m 1 | awk '{print $7}'", port)
-				out, _ := exec.Command("bash", "-c", cmd).Output()
-				pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
-				if err != nil || pid != service.process.Pid {
-					fmt.Println(service.serviceName + " checher failed")
-					syscall.Kill(service.process.Pid, syscall.SIGINT)
-					return
-				}
-
-			}
-		}
-
+		checkPort("udp")
+		checkPort("tcp")
 	}
-
 }
 
-func (foreman Foreman) sigchildHandler() {
+// handler for signal child for child process
+func (foreman *Foreman) sigchildHandler() {
 	for _, service := range foreman.services {
 		childProcess, _ := process.NewProcess(int32(service.process.Pid))
 		childStatus, _ := childProcess.Status()
 		if childStatus == "Z" {
+			service.status = false
+			foreman.services[service.serviceName] = service
 			fmt.Println(service.serviceName + " stopped")
 			service.process.Wait()
 			if !service.runOnce && foreman.active {
-				foreman.runProcess(service.serviceName)
+				foreman.runService(service.serviceName)
 			}
 		}
 	}
 }
 
+// handler for signal interrupt for the main process
 func (foreman *Foreman) sigIntHandler() {
 	foreman.active = false
 	for _, service := range foreman.services {
