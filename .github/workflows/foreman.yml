@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  build:
+  testing:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
         go-version: 1.18
 
     - name: run unit tests
-      run: go test *.go 
+      run: go test ./*.go 
 
     - name: run integration tests
-      run ./test.sh
+      run: ./test.sh
