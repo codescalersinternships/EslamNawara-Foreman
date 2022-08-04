@@ -1,5 +1,4 @@
 name: test-foreman
-
 on:
   push:
     branches: [ development ]
